@@ -589,7 +589,7 @@ end
 
 function redzlib:MakeWindow(Configs)
   local WTitle = Configs[1] or Configs.Name or Configs.Title or "rael hub with redz library"
-  local WMiniText = Configs[2] or Configs.SubTitle or "by : redz9999"
+  local WMiniText = Configs[2] or Configs.SubTitle or "by : Laelmano24"
   
   Settings.ScriptFile = Configs[3] or Configs.SaveFolder or false
   
@@ -608,7 +608,7 @@ function redzlib:MakeWindow(Configs)
       end
     end
   end
-  
+
   local UISizeX, UISizeY = unpack(redzlib.Save.UISize)
   local MainFrame = InsertTheme(Create("ImageButton", ScreenGui, {
     Size = UDim2.fromOffset(UISizeX, UISizeY),
@@ -620,6 +620,13 @@ function redzlib:MakeWindow(Configs)
     Rotation = 45
   })MakeDrag(MainFrame)
   
+  local CloseInterface = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.RightControl then
+      MainFrame.Visible = not MainFrame.Visible
+    end
+  end)
+
   local MainCorner = Make("Corner", MainFrame)
   
   local Components = Create("Folder", MainFrame, {
