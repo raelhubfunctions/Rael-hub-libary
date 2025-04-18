@@ -7,6 +7,7 @@ local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local Player = Players.LocalPlayer
 local PlayerMouse = Player:GetMouse()
+shared.RedzLibary = {}
 
 local redzlib = {
   Themes = {
@@ -592,7 +593,9 @@ function redzlib:MakeWindow(Configs)
   local WMiniText = Configs[2] or Configs.SubTitle or "by : Laelmano24"
   
   Settings.ScriptFile = Configs[3] or Configs.SaveFolder or false
-  
+
+  local releasemouse = Configs[4] or Configs.ReleaseMouse or false
+
   local function LoadFile()
     local File = Settings.ScriptFile
     if type(File) ~= "string" then return end
@@ -609,6 +612,11 @@ function redzlib:MakeWindow(Configs)
     end
   end
 
+  local function MouseFree()
+	UserInputService.MouseIconEnabled = true
+	UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+  end
+
   local UISizeX, UISizeY = unpack(redzlib.Save.UISize)
   local MainFrame = InsertTheme(Create("ImageButton", ScreenGui, {
     Size = UDim2.fromOffset(UISizeX, UISizeY),
@@ -623,9 +631,25 @@ function redzlib:MakeWindow(Configs)
   local CloseInterface = UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     if input.KeyCode == Enum.KeyCode.RightControl then
+        
       MainFrame.Visible = not MainFrame.Visible
     end
   end)
+
+  if shared.RedzLibary.ConnectMouse then
+    shared.RedzLibary.ConnectMouse:Disconnect()
+    shared.RedzLibary.ConnectMouse = nil
+    UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+  end
+
+  if releasemouse then
+
+    shared.RedzLibary.ConnectMouse = RunService.RenderStepped:Connect(function()
+        if MainFrame.Visible then
+            MouseFree()
+        end
+    end)
+  end
 
   local MainCorner = Make("Corner", MainFrame)
   
