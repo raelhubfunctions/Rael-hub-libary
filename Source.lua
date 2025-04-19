@@ -599,6 +599,7 @@ function redzlib:MakeWindow(Configs)
   local function LoadFile()
     local File = Settings.ScriptFile
     if type(File) ~= "string" then return end
+    if File == "" then return end
     if not readfile or not isfile then return end
     local s, r = pcall(isfile, File)
     
@@ -610,7 +611,7 @@ function redzlib:MakeWindow(Configs)
         Flags = s and r or {}
       end
     end
-  end
+  end;LoadFile()
 
   local function MouseFree()
 	UserInputService.MouseIconEnabled = true
