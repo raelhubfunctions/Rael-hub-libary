@@ -3,7 +3,7 @@ local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
-local CoreGui = game:GetService("CoreGui")
+local PlayerGui = gethui() or game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local Player = Players.LocalPlayer
 local PlayerMouse = Player:GetMouse()
@@ -284,7 +284,7 @@ local GetFlag, SetFlag, CheckFlag do
   end)
 end
 
-local ScreenGui = Create("ScreenGui", CoreGui, {
+local ScreenGui = Create("ScreenGui", PlayerGui, {
   Name = "rael hub with redz library",
 }, {
   Create("UIScale", {
@@ -293,7 +293,7 @@ local ScreenGui = Create("ScreenGui", CoreGui, {
   })
 })
 
-local ScreenFind = CoreGui:FindFirstChild(ScreenGui.Name)
+local ScreenFind = PlayerGui:FindFirstChild(ScreenGui.Name)
 if ScreenFind and ScreenFind ~= ScreenGui then
   ScreenFind:Destroy()
 end
