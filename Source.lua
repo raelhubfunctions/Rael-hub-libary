@@ -7,6 +7,7 @@ local PlayerGui = gethui() or game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local Player = Players.LocalPlayer
 local PlayerMouse = Player:GetMouse()
+local raelConfig = {Theme="Green"}
 shared.RedzLibary = {}
 
 local redzlib = {
@@ -67,7 +68,7 @@ local redzlib = {
   Save = {
     UISize = {434,247},
     TabSize = 160,
-    Theme = "Green"
+    Theme = raelConfig.Theme or "Green"
   },
   Settings = {},
   Connection = {},
@@ -562,10 +563,10 @@ function redzlib:SetTheme(NewTheme)
   if not VerifyTheme(NewTheme) then return end
   
   redzlib.Save.Theme = NewTheme
-  SaveJson("rael hub with redz library.json", redzlib.Save)
+  --SaveJson("rael hub with redz library.json", redzlib.Save)
   Theme = redzlib.Themes[NewTheme]
-  
-  Comnection:FireConnection("ThemeChanged", NewTheme)
+
+  Connection:FireConnection("ThemeChanged", NewTheme)
   table.foreach(redzlib.Instances, function(_,Val)
     if Val.Type == "Gradient" then
       Val.Instance.Color = Theme["Color Hub 1"]
