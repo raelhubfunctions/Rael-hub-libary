@@ -285,7 +285,7 @@ local GetFlag, SetFlag, CheckFlag do
 end
 
 local ScreenGui = Create("ScreenGui", PlayerGui, {
-  Name = "rael hub with redz library",
+  Name = getgenv().redzLibName or "rael hub with redz library",
 }, {
   Create("UIScale", {
     Scale = UIScale,
