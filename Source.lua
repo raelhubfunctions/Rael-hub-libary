@@ -7,7 +7,6 @@ local PlayerGui = gethui() or game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local Player = Players.LocalPlayer
 local PlayerMouse = Player:GetMouse()
-local raelConfig = {Theme="Green"}
 shared.RedzLibary = {}
 
 local redzlib = {
@@ -59,6 +58,18 @@ local redzlib = {
       ["Color Theme"] = Color3.fromRGB(50, 229, 148),
       ["Color Text"] = Color3.fromRGB(243, 243, 243),
       ["Color Dark Text"] = Color3.fromRGB(180, 180, 180)
+    },
+    Troll = {
+      ["Color Hub 1"] = ColorSequence.new({
+        ColorSequenceKeypoint.new(0.00, Color3.fromRGB(25, 25, 25)),
+        ColorSequenceKeypoint.new(0.50, Color3.fromRGB(32.5, 32.5, 32.5)),
+        ColorSequenceKeypoint.new(1.00, Color3.fromRGB(25, 25, 25))
+      }),
+      ["Color Hub 2"] = Color3.fromRGB(30, 30, 30),
+      ["Color Stroke"] = Color3.fromRGB(40, 40, 40),
+      ["Color Theme"] = Color3.fromRGB(138, 36, 36),
+      ["Color Text"] = Color3.fromRGB(243, 243, 243),
+      ["Color Dark Text"] = Color3.fromRGB(180, 180, 180)
     }
     
   },
@@ -68,7 +79,7 @@ local redzlib = {
   Save = {
     UISize = {434,247},
     TabSize = 160,
-    Theme = raelConfig.Theme or "Green"
+    Theme = "Green"
   },
   Settings = {},
   Connection = {},
@@ -286,15 +297,13 @@ local GetFlag, SetFlag, CheckFlag do
 end
 
 local ScreenGui = Create("ScreenGui", PlayerGui, {
-  Name = getgenv().redzLibName or "rael hub with redz library",
+  Name = redzLibName or "rael hub with redz library",
 }, {
   Create("UIScale", {
     Scale = UIScale,
     Name = "Scale"
   })
 })
-
-if getgenv().redzLibName then getgenv().redzLibName = nil end
 
 local ScreenFind = PlayerGui:FindFirstChild(ScreenGui.Name)
 if ScreenFind and ScreenFind ~= ScreenGui then
@@ -559,11 +568,11 @@ function redzlib:GetIcon(IconName)
   return IconName
 end
 
-function redzlib:SetTheme(NewTheme)
+function redzlib:SetTheme(NewTheme, saveTheme)
   if not VerifyTheme(NewTheme) then return end
   
   redzlib.Save.Theme = NewTheme
-  --SaveJson("rael hub with redz library.json", redzlib.Save)
+  if saveTheme == true then SaveJson("rael hub with redz library.json", redzlib.Save) end
   Theme = redzlib.Themes[NewTheme]
 
   Connection:FireConnection("ThemeChanged", NewTheme)
@@ -584,6 +593,10 @@ function redzlib:SetTheme(NewTheme)
       Val.Instance[GetColor(Val.Instance)] = Theme["Color Theme"]
     end
   end)
+end
+
+function redzlib:SetScreenTitle()
+
 end
 
 function redzlib:SetScale(NewScale)
