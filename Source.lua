@@ -293,6 +293,8 @@ local ScreenGui = Create("ScreenGui", PlayerGui, {
   })
 })
 
+if getgenv().redzLibName then getgenv().redzLibName = nil end
+
 local ScreenFind = PlayerGui:FindFirstChild(ScreenGui.Name)
 if ScreenFind and ScreenFind ~= ScreenGui then
   ScreenFind:Destroy()
