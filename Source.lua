@@ -1,13 +1,25 @@
+
+
+--[[
+
+	Created by Redz
+	Modified for Laelmano24
+  
+]]
+
 local MarketplaceService = game:GetService("MarketplaceService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
-local PlayerGui = gethui() or game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local Player = Players.LocalPlayer
 local PlayerMouse = Player:GetMouse()
-shared.RedzLibary = {}
+local HiddenGui = (gethui or function() return game:GetService("CoreGui") end)()
+
+shared.redzlib = shared.redzlib or {
+  Cache = {}
+}
 
 local redzlib = {
   Themes = {
@@ -88,6 +100,7 @@ local redzlib = {
   Options = {},
   Flags = {},
   Tabs = {},
+  Device = UserInputService.TouchEnabled and "Mobile" or "Computer",
   Icons = loadstring(game:HttpGet("https://raw.githubusercontent.com/raelhubfunctions/Rael-hub-libary/refs/heads/main/Icons.lua"))()
 }
 
@@ -296,7 +309,7 @@ local GetFlag, SetFlag, CheckFlag do
   end)
 end
 
-local ScreenGui = Create("ScreenGui", PlayerGui, {
+local ScreenGui = Create("ScreenGui", HiddenGui, {
   Name = redzLibName or "rael hub with redz library",
 }, {
   Create("UIScale", {
@@ -305,7 +318,7 @@ local ScreenGui = Create("ScreenGui", PlayerGui, {
   })
 })
 
-local ScreenFind = PlayerGui:FindFirstChild(ScreenGui.Name)
+local ScreenFind = HiddenGui:FindFirstChild(ScreenGui.Name)
 if ScreenFind and ScreenFind ~= ScreenGui then
   ScreenFind:Destroy()
 end
@@ -610,7 +623,29 @@ function redzlib:MakeWindow(Configs)
   
   Settings.ScriptFile = Configs[3] or Configs.SaveFolder or false
 
-  local releasemouse = Configs[4] or Configs.ReleaseMouse or false
+  local WReleaseMouse = Configs[4] or Configs.ReleaseMouse or false
+
+  local function MouseFree(IsReleaseMouse, Visible)
+    if not IsReleaseMouse then return end
+
+    shared.redzlib.Cache.MouseProps = shared.redzlib.Cache.MouseProps or {
+      MouseIcon = UserInputService.MouseIcon,
+      MouseBehavior = UserInputService.MouseBehavior,
+      MouseIconEnabled = UserInputService.MouseIconEnabled,
+    }
+    
+    if Visible then
+      UserInputService.MouseIcon = ""
+      UserInputService.MouseIconEnabled = true
+      UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+    else
+      local MouseProps = shared.redzlib.Cache.MouseProps
+
+      UserInputService.MouseIcon = MouseProps.MouseIcon
+      UserInputService.MouseBehavior = MouseProps.MouseBehavior
+      UserInputService.MouseIconEnabled = MouseProps.MouseIconEnabled
+    end
+  end
 
   local function LoadFile()
     local File = Settings.ScriptFile
@@ -628,11 +663,6 @@ function redzlib:MakeWindow(Configs)
       end
     end
   end;LoadFile()
-
-  local function MouseFree()
-	UserInputService.MouseIconEnabled = true
-	UserInputService.MouseBehavior = Enum.MouseBehavior.Default
-  end
 
   local UISizeX, UISizeY = unpack(redzlib.Save.UISize)
   local MainFrame = InsertTheme(Create("ImageButton", ScreenGui, {
@@ -652,21 +682,6 @@ function redzlib:MakeWindow(Configs)
       MainFrame.Visible = not MainFrame.Visible
     end
   end)
-
-  if shared.RedzLibary.ConnectMouse then
-    shared.RedzLibary.ConnectMouse:Disconnect()
-    shared.RedzLibary.ConnectMouse = nil
-    UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
-  end
-
-  if releasemouse then
-
-    shared.RedzLibary.ConnectMouse = RunService.RenderStepped:Connect(function()
-        if MainFrame.Visible then
-            MouseFree()
-        end
-    end)
-  end
 
   local MainCorner = Make("Corner", MainFrame)
   
@@ -771,9 +786,13 @@ function redzlib:MakeWindow(Configs)
     MainFrame.Size = ControlSize1.Position
   end
   
+  RunService.RenderStepped:Connect(function()
+    MouseFree(WReleaseMouse, MainFrame.Visible)
+  end)
+
   ControlSize1:GetPropertyChangedSignal("Position"):Connect(ControlSize)
   ControlSize2:GetPropertyChangedSignal("Position"):Connect(ControlSize)
-  
+
   ConnectSave(ControlSize1, function()
     if not Minimized then
       redzlib.Save.UISize = {MainFrame.Size.X.Offset, MainFrame.Size.Y.Offset}
@@ -1296,6 +1315,7 @@ function redzlib:MakeWindow(Configs)
       local OpDefault = Configs[3] or Configs.Default or {}
       local Flag = Configs[5] or Configs.Flag or false
       local DMultiSelect = Configs.MultiSelect or false
+      local DSaveSelected = Configs.SaveSelected or false
       local Callback = Funcs:GetCallback(Configs, 4)
       
       local Button, LabelFunc = ButtonFrame(Container, DName, DDesc, UDim2.new(1, -180))
@@ -1423,7 +1443,7 @@ function redzlib:MakeWindow(Configs)
         CreateTween({DropFrame, "Position", NewPos, 0.1})
       end
       
-      local AddNewOptions, GetOptions, AddOption, RemoveOption, Selected do
+      local AddNewOptions, GetOptions, AddOption, RemoveOption, Selected, SaveSelected do
         local Default = type(OpDefault) ~= "table" and {OpDefault} or OpDefault
         local MultiSelect = DMultiSelect
         local Options = {}
@@ -1487,8 +1507,8 @@ function redzlib:MakeWindow(Configs)
             CallbackSelected()
           else
             Option.LastCB = tick()
-            
             Selected = Option.Value
+            SaveSelected = Option.Value
             CallbackSelected()
           end
           UpdateSelected()
@@ -1562,7 +1582,9 @@ function redzlib:MakeWindow(Configs)
         AddNewOptions = function(List, Clear)
           if Clear then
             table.foreach(Options, RemoveOption)
+            Selected = DSaveSelected and SaveSelected
           end
+
           table.foreach(List, AddOption)
           CallbackSelected()
           UpdateSelected()
