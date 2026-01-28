@@ -100,6 +100,7 @@ local redzlib = {
   Options = {},
   Flags = {},
   Tabs = {},
+  ScreenGui = nil,
   Device = UserInputService.TouchEnabled and "Mobile" or "Computer",
   Icons = loadstring(game:HttpGet("https://raw.githubusercontent.com/raelhubfunctions/Rael-hub-libary/refs/heads/main/Icons.lua"))()
 }
@@ -322,6 +323,8 @@ local ScreenFind = HiddenGui:FindFirstChild(ScreenGui.Name)
 if ScreenFind and ScreenFind ~= ScreenGui then
   ScreenFind:Destroy()
 end
+
+redzlib.ScreenGui = ScreenGui
 
 local function GetStr(val)
   if type(val) == "function" then
