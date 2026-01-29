@@ -326,6 +326,21 @@ end
 
 redzlib.ScreenGui = ScreenGui
 
+local NotificationMain = Create("Frame", ScreenGui, {
+  Name = "NotificationMain",
+  BorderSizePixel = 0,
+  BackgroundTransparency = 1,
+  BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+  Size = UDim2.new(0, 200, 1, -50),
+  Position = UDim2.new(1, -205, 0, 0)
+},{
+  Create("UIListLayout", {
+    Padding = UDim.new(0, 5),
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    VerticalAlignment = Enum.VerticalAlignment.Bottom
+  })
+})
+
 local function GetStr(val)
   if type(val) == "function" then
     return val()
@@ -612,12 +627,130 @@ function redzlib:SetTheme(NewTheme, saveTheme)
 end
 
 function redzlib:SetScreenTitle()
-
 end
 
 function redzlib:SetScale(NewScale)
   NewScale = ViewportSize.Y / math.clamp(NewScale, 300, 2000)
   UIScale, ScreenGui.Scale.Scale = NewScale, NewScale
+end
+
+function redzlib:Notify(config)
+	local NTitle = config[1] or config.Title or ""
+	local NText = config[2] or config.Text or ""
+	local NDuration = config[3] or config.Duration or 3
+	local NIcon = config[4] or config.Icon
+  local NSound = config[5] or config.Sound
+	
+  local notification = Create("Frame", NotificationMain, {
+    Name = "notification",
+    BorderSizePixel = 0,
+	  BackgroundTransparency = 1,
+	  Size = UDim2.new(0, 200, 0, 50)
+  })
+
+  local content = Create("Frame", notification, {
+    Name = "content",
+    BorderSizePixel = 0,
+    Size = UDim2.new(0, 200, 0, 50),
+    Position = UDim2.new(0, 300, 0, 0),
+	  BackgroundColor3 = Theme["Color Stroke"]
+  }, {
+    Create("UICorner", {
+        CornerRadius = UDim.new(0, 5)
+      }
+    ),
+    Create("UIListLayout", {
+        Name = "content",
+        Padding = UDim.new(0, 5),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        FillDirection = Enum.FillDirection.Horizontal
+      }
+    ),
+    Create("UIPadding", {
+        PaddingTop = UDim.new(0, 5),
+        PaddingBottom = UDim.new(0, 5),
+        PaddingLeft = UDim.new(0, 5),
+        PaddingRight = UDim.new(0, 5)
+      }
+    )
+  })
+
+  local textContent = Create("Frame", content, {
+    Name = "textContent",
+    LayoutOrder = 2,
+	  BackgroundTransparency = 1,
+	  Size = UDim2.new(0, 190, 0, 40)
+  }, {
+    Create("UIListLayout", {
+        Padding = UDim.new(0, 0),
+        SortOrder = Enum.SortOrder.LayoutOrder
+      }
+    ),
+    Create("TextLabel", {
+        Name = "title",
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 14),
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Top,
+        Text = NTitle,
+        TextSize = 13,
+        LayoutOrder = 1,
+        TextColor3 = Color3.fromRGB(255, 255, 255),
+        FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold)
+      }
+    ),
+    Create("TextLabel", {
+        Name = "description",
+        Text = NText,
+        Size = UDim2.new(1, 0, 1, -16),
+        TextWrapped = true,
+        BackgroundTransparency = 1,
+        TextYAlignment = Enum.TextYAlignment.Top,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextSize = 12,
+        LayoutOrder = 2,
+        TextColor3 = Color3.fromRGB(255, 255, 255),
+        FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold)
+      }
+    )
+  })
+	
+	if NIcon then
+    local IconContent = typeof(NIcon) == "table" and NIcon.Icon or NIcon
+    local IconCornerRadius = typeof(NIcon) == "table" and NIcon.CornerRadius and NIcon.CornerRadius or UDim.new(0, 0)
+
+		textContent.Size = UDim2.new(0, 145, 0, 40)
+    
+    Create("ImageLabel", content, {
+        Name = "content",
+        Image = IconContent,
+        BorderSizePixel = 0,
+        BackgroundTransparency = 1,
+        LayoutOrder = 1,
+        Size = UDim2.new(0, 40, 0, 40)
+      },
+      {
+        Create("UICorner", {
+          Name = "UICorner",
+          CornerRadius = IconCornerRadius
+        })
+      }
+    )
+	end
+	
+  if NSound then
+    Create("Sound", notification, {
+      Name = "Sound",
+      SoundId = NSound
+    }):Play()
+  end
+
+	task.spawn(function()
+    CreateTween({content, "Position", UDim2.new(0, 0, 0, 0), 0.5, true})
+		task.wait(NDuration)
+		CreateTween({content, "Position", UDim2.new(0, 300, 0, 0), 0.5, true})
+		notification:Destroy()
+	end)
 end
 
 function redzlib:MakeWindow(Configs)
@@ -1962,5 +2095,7 @@ function redzlib:MakeWindow(Configs)
   MinimizeButton.Activated:Connect(Window.MinimizeBtn)
   return Window
 end
+
+shared.redzlib.lib = redzlib
 
 return redzlib
