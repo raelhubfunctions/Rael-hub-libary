@@ -15,7 +15,7 @@ local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local Player = Players.LocalPlayer
 local PlayerMouse = Player:GetMouse()
-local HiddenGui = (gethui or function() return game:GetService("CoreGui") end)()
+local HiddenGui = (function() return game:GetService("CoreGui") end)()
 
 shared.redzlib = shared.redzlib or {
   Cache = {}
@@ -374,37 +374,55 @@ local function CreateTween(Configs)
   return Tween
 end
 
-local function MakeDrag(Instance)
+local function MakeDrag(Instance, Callback)
   task.spawn(function()
     SetProps(Instance, {
       Active = true,
       AutoButtonColor = false
     })
     
-		local DragStart, StartPos, InputOn
-		
-		local function Update(Input)
-			local delta = Input.Position - DragStart
-			local Position = UDim2.new(StartPos.X.Scale, StartPos.X.Offset + delta.X / UIScale, StartPos.Y.Scale, StartPos.Y.Offset + delta.Y / UIScale)
-			-- Instance.Position = Position
-			CreateTween({Instance, "Position", Position, 0.35})
-		end
-		
-		Instance.MouseButton1Down:Connect(function()
-		  InputOn = true
-		end)
-		
-    Instance.InputBegan:Connect(function(Input)
-      if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
-        StartPos = Instance.Position
-        DragStart = Input.Position
-        
-        while UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do RunService.Heartbeat:Wait()
-          if InputOn then
-            Update(Input)
-          end
-        end
-        InputOn = false
+    local dragStart
+    local startPos
+    local moved = false
+    local dragging = false
+
+    local function update(input)
+	    local delta = input.Position - dragStart
+
+      if math.abs(delta.X) > 6 or math.abs(delta.Y) > 6 then
+        moved = true
+      end
+
+      if moved then
+        Instance.Position = UDim2.new(
+          startPos.X.Scale,
+          startPos.X.Offset + delta.X / UIScale,
+          startPos.Y.Scale,
+          startPos.Y.Offset + delta.Y / UIScale
+        )
+      end
+    end
+
+    Instance.InputBegan:Connect(function(input)
+      if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        moved = false
+        dragStart = input.Position
+        startPos = Instance.Position
+      end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+      if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        update(input)
+      end
+    end)
+
+    Instance.InputEnded:Connect(function(input)
+      if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+
+        if not moved and Callback then Callback() end
       end
     end)
 	end)
@@ -968,6 +986,15 @@ function redzlib:MakeWindow(Configs)
   
   local Minimized, SaveSize, WaitClick
   local Window, FirstTab = {}, false
+
+  function Window:SetTmageBackground(imageId)
+    local regex = "^rbxassetid:%/%/%d+$"
+
+    if imageId and typeof(imageId) == "string" and imageId:match(regex) then
+      MainFrame.Image = imageId
+    end
+  end
+
   function Window:CloseBtn()
     local Dialog = Window:Dialog({
       Title = "Close",
@@ -1005,13 +1032,17 @@ function redzlib:MakeWindow(Configs)
     MainFrame.Visible = not MainFrame.Visible
   end
   function Window:AddMinimizeButton(Configs)
-    local Button = MakeDrag(Create("ImageButton", ScreenGui, {
-      Size = UDim2.fromOffset(50, 50),
-      Position = UDim2.fromScale(0.15, 0.15),
-      BackgroundTransparency = 1,
-      BackgroundColor3 = Theme["Color Hub 2"],
-      AutoButtonColor = false
-    }))
+    local Button = MakeDrag(
+      Create("ImageButton", ScreenGui, {
+          Size = UDim2.fromOffset(50, 50),
+          Position = UDim2.fromScale(0.15, 0.15),
+          BackgroundTransparency = 1,
+          BackgroundColor3 = Theme["Color Hub 2"],
+          AutoButtonColor = false
+        }
+      ),
+      function() MainFrame.Visible = not MainFrame.Visible end
+    )
     
     local Stroke, Corner
     if Configs.Corner then
@@ -1024,7 +1055,6 @@ function redzlib:MakeWindow(Configs)
     end
     
     SetProps(Button, Configs.Button)
-    Button.Activated:Connect(Window.Minimize)
     
     return {
       Stroke = Stroke,
