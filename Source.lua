@@ -15,7 +15,7 @@ local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local Player = Players.LocalPlayer
 local PlayerMouse = Player:GetMouse()
-local HiddenGui = (function() return game:GetService("CoreGui") end)()
+local HiddenGui = (gethui or function() return game:GetService("CoreGui") end)()
 
 shared.redzlib = shared.redzlib or {
   Cache = {}
@@ -86,7 +86,7 @@ local redzlib = {
     
   },
   Info = {
-    Version = "1.1.0"
+    Version = "2.0.0"
   },
   Save = {
     UISize = {434,247},
@@ -829,10 +829,10 @@ function redzlib:MakeWindow(Configs)
     Rotation = 45
   })MakeDrag(MainFrame)
   
-  local CloseInterface = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.KeyCode == Enum.KeyCode.RightControl then
-        
+  local ButtonTarget = "RightControl"
+
+  UserInputService.InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode[ButtonTarget] and MainFrame then
       MainFrame.Visible = not MainFrame.Visible
     end
   end)
@@ -992,6 +992,12 @@ function redzlib:MakeWindow(Configs)
 
     if imageId and typeof(imageId) == "string" and imageId:match(regex) then
       MainFrame.Image = imageId
+    end
+  end
+
+  function Window:SetKeybind(value)
+    if value and typeof(value) == "string" then
+      ButtonTarget = value
     end
   end
 
@@ -2023,6 +2029,91 @@ function redzlib:MakeWindow(Configs)
       function TextBox:Destroy() Button:Destroy() end
       return TextBox
     end
+    
+    function Tab:AddKeybind(Configs)
+      local TName = Configs[1] or Configs.Name or Configs.Title or "Text Box"
+      local TDesc = Configs[2] or Configs.Desc or Configs.Description or ""
+      local TValue = Configs[3] or Configs.Value or "..."
+      local Callback = Configs[4] or Configs.Callback or function() end
+      
+      local Button, LabelFunc = ButtonFrame(Container, TName, TDesc, UDim2.new(1, -38))
+      local ButtonTarget = "..."
+      local NoCanActive = false
+
+      local SelectedFrame = InsertTheme(Create("Frame", Button, {
+        Size = UDim2.new(0, 80, 0, 18),
+        Position = UDim2.new(1, -10, 0.5),
+        AnchorPoint = Vector2.new(1, 0.5),
+        BackgroundColor3 = Theme["Color Stroke"]
+      }), "Stroke")Make("Corner", SelectedFrame, UDim.new(0, 4))
+      
+      local keybindTextLabel = InsertTheme(Create("TextLabel", SelectedFrame, {
+        Size = UDim2.new(0.85, 0, 0.85, 0),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.new(0.5, 0, 0.5, 0),
+        BackgroundTransparency = 1,
+        Font = Enum.Font.GothamBold,
+        TextScaled = true,
+        TextColor3 = Theme["Color Text"],
+        Text = TValue
+      }), "Text")
+
+      local KeybindInputBegan = UserInputService.InputBegan:Connect(function(input)
+        local success, result = pcall(function()
+          return input.KeyCode == Enum.KeyCode[ButtonTarget]
+        end)
+
+        if success and result and not NoCanActive then
+          Callback(ButtonTarget)
+        end
+      end)
+
+      Button.MouseButton1Click:Connect(function()
+        local DetectionConnection;
+
+        keybindTextLabel.Text = "..."
+
+        DetectionConnection = UserInputService.InputBegan:Connect(function(input)
+          if input.UserInputType == Enum.UserInputType.Keyboard then
+            local NewButtonTarget = tostring(input.KeyCode):gsub("Enum.KeyCode.", "")
+
+            NoCanActive = true
+            ButtonTarget = NewButtonTarget
+            keybindTextLabel.Text = NewButtonTarget
+
+            task.wait(0.1)
+
+            if DetectionConnection then
+              NoCanActive = false
+              
+              DetectionConnection:Disconnect()
+              DetectionConnection = nil
+            end
+          end
+        end)
+      end)
+
+      local Keybind = {}
+
+      function Keybind:SetKeybind(value)
+        local NewButtonTarget = tostring(value):gsub("Enum.KeyCode.", "")
+
+        ButtonTarget = NewButtonTarget
+        keybindTextLabel.Text = NewButtonTarget
+      end
+
+      function Keybind:Destroy()
+        if KeybindInputBegan then
+          KeybindInputBegan:Disconnect()
+          KeybindInputBegan = nil
+        end
+
+        Button:Destroy()
+      end
+
+      return Keybind
+    end
+
     function Tab:AddDiscordInvite(Configs)
       local Title = Configs[1] or Configs.Name or Configs.Title or "Discord"
       local Desc = Configs.Desc or Configs.Description or ""
@@ -2125,7 +2216,5 @@ function redzlib:MakeWindow(Configs)
   MinimizeButton.Activated:Connect(Window.MinimizeBtn)
   return Window
 end
-
-shared.redzlib.lib = redzlib
 
 return redzlib
