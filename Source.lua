@@ -173,6 +173,29 @@ local SetProps, SetChildren, InsertTheme, Create do
 end
 
 local Funcs = {} do
+  function Funcs:RandomString(length)
+    if typeof(length) == "number" and length > 0 then
+      local resultString = {}
+
+      for i = 1, length do
+        table.insert(resultString, string.char(math.random(32, 255)))
+      end
+
+      return table.concat(resultString)
+    end
+
+    return nil
+  end
+
+  function Funcs:GetCallback(Configs, index)
+    local func = Configs[index] or Configs.Callback or function()end
+    
+    if type(func) == "table" then
+      return ({function(Value) func[1][func[2]] = Value end})
+    end
+    return {func}
+  end
+
   function Funcs:InsertCallback(tab, func)
     if type(func) == "function" then
       table.insert(tab, func)
@@ -199,13 +222,57 @@ local Funcs = {} do
       Obj.Parent = not Obj.Parent and Parent
     end
   end
-  
-  function Funcs:GetConnectionFunctions(ConnectedFuncs, func)
+end
+
+local Connections = redzlib.Connection; do
+  function Funcs:SetConnection(Configs)
+    local CSignal = Configs[1] or Configs.Signal
+    local CInstance = Configs[2] or Configs.Instance
+    local CRandom = Configs[3] or Configs.RandomString or false
+
+    local TableConnect = {}
+    local CName = CSignal .. (CRandom and "-" .. Funcs:RandomString(16) or "")
+    local CFunc = function() end
+
+    Connections[CName] = {
+      Name = CName,
+      Function = CFunc,
+      Connection = CInstance[CSignal]:Connect(function(...) CFunc(...) end)
+    }
+
+    function TableConnect:Connect(callback)
+      CFunc = callback
+      if Connections[CName] and Connections[CName].Function then
+        Connections[CName].Function = callback
+      end
+    end
+
+    function TableConnect:Disconnect()
+      if Connections[CName] and Connections[CName].Connect then
+        Connections[CName].Connect:Disconnect()
+        Connections[CName] = nil
+      end
+    end
+
+    return TableConnect
+  end
+
+  function Funcs:FireCustomConnection(CName, ...)
+    local Connection = type(CName) == "string" and Connections[CName] or Connections[CName.Name]
+
+    if Connection and Connection.Functions then
+      for _, func in pairs(Connection.Functions) do
+        task.spawn(func, ...)
+      end
+    end
+  end
+
+  function Funcs:GetCustomConnectionFunctions(connectedFuncs, func)
     local Connected = { Function = func, Connected = true }
     
     function Connected:Disconnect()
       if self.Connected then
-        table.remove(ConnectedFuncs, table.find(ConnectedFuncs, self.Function))
+        table.remove(connectedFuncs, table.find(connectedFuncs, self.Function))
         self.Connected = false
       end
     end
@@ -218,61 +285,44 @@ local Funcs = {} do
     
     return Connected
   end
-  
-  function Funcs:GetCallback(Configs, index)
-    local func = Configs[index] or Configs.Callback or function()end
-    
-    if type(func) == "table" then
-      return ({function(Value) func[1][func[2]] = Value end})
-    end
-    return {func}
-  end
-end
 
-local Connections, Connection = {}, redzlib.Connection do
-  local function NewConnectionList(List)
+  function Funcs:NewCustomConnectionList(List)
     if type(List) ~= "table" then return end
-    
-    for _,CoName in ipairs(List) do
-      local ConnectedFuncs, Connect = {}, {}
-      Connection[CoName] = Connect
-      Connections[CoName] = ConnectedFuncs
-      Connect.Name = CoName
+    for _, CName in ipairs(List) do
+      local Connection = {}
+      local ConnectedFuncs = {}
+      local TableConnect = { Name = CName, Connection = Connection, Functions = ConnectedFuncs }
+
+      Connections[CName] = TableConnect
       
-      function Connect:Connect(func)
+      function TableConnect:Connect(func)
         if type(func) == "function" then
           table.insert(ConnectedFuncs, func)
-          return Funcs:GetConnectionFunctions(ConnectedFuncs, func)
+          return Funcs:GetCustomConnectionFunctions(ConnectedFuncs, func)
         end
       end
-      
-      function Connect:Once(func)
-        if type(func) == "function" then
-          local Connected;
-          
-          local _NFunc;_NFunc = function(...)
-            task.spawn(func, ...)
-            Connected:Disconnect()
-          end
-          
-          Connected = Funcs:GetConnectionFunctions(ConnectedFuncs, _NFunc)
-          return Connected
+
+      function Connection:Disconnect()
+        if Connections[CName] then
+          Connections[CName] = nil
         end
       end
     end
   end
-  
-  function Connection:FireConnection(CoName, ...)
-    local Connection = type(CoName) == "string" and Connections[CoName] or Connections[CoName.Name]
-    for _,Func in pairs(Connection) do
-      task.spawn(Func, ...)
-    end
-  end
-  
-  NewConnectionList({"FlagsChanged", "ThemeChanged", "FileSaved", "ThemeChanging", "OptionAdded"})
+
+  Funcs:NewCustomConnectionList({
+    "FileSaved",
+    "OptionAdded",
+    "FlagsChanged",
+    "ThemeChanged",
+    "ThemeChanging"
+  })
 end
 
-local GetFlag, SetFlag, CheckFlag do
+local GetFlag, SetFlag, CheckFlag, FlagConnection do
+
+  FlagConnection = Connections["FlagsChanged"]
+
   CheckFlag = function(Name)
     return type(Name) == "string" and Flags[Name] ~= nil
   end
@@ -284,15 +334,19 @@ local GetFlag, SetFlag, CheckFlag do
   SetFlag = function(Flag, Value)
     if Flag and (Value ~= Flags[Flag] or type(Value) == "table") then
       Flags[Flag] = Value
-      Connection:FireConnection("FlagsChanged", Flag, Value)
+      Funcs:FireCustomConnection("FlagsChanged", Flag, Value)
     end
   end
   
-  local db
-  Connection.FlagsChanged:Connect(function(Flag, Value)
+  local DatabaseState
+
+  FlagConnection:Connect(function(Flag, Value)
     local ScriptFile = Settings.ScriptFile
-    if not db and ScriptFile and writefile then
-      db=true;task.wait(0.1);db=false
+
+    if not DatabaseState and ScriptFile and writefile then
+      DatabaseState = true
+      task.wait(0.1)
+      DatabaseState = false
       
       local Success, Encoded = pcall(function()
         -- local _Flags = {}
@@ -303,14 +357,14 @@ local GetFlag, SetFlag, CheckFlag do
       if Success then
         local Success = pcall(writefile, ScriptFile, Encoded)
         if Success then
-          Connection:FireConnection("FileSaved", "Script-Flags", ScriptFile, Encoded)
+          Funcs:FireCustomConnection("FileSaved", "Script-Flags", ScriptFile, Encoded)
         end
       end
     end
   end)
 end
 
-local ScreenGui = Create("ScreenGui", HiddenGui, {
+local ScreenGui: ScreenGui = Create("ScreenGui", HiddenGui, {
   Name = redzLibName or "rael hub with redz library",
 }, {
   Create("UIScale", {
@@ -323,6 +377,14 @@ local ScreenFind = HiddenGui:FindFirstChild(ScreenGui.Name)
 if ScreenFind and ScreenFind ~= ScreenGui then
   ScreenFind:Destroy()
 end
+
+ScreenGui.Destroying:Connect(function()
+  for CName, CValue in pairs(Connections) do
+    if typeof(CValue) == "table" and CValue.Connection then
+      CValue.Connection:Disconnect()
+    end
+  end
+end)
 
 redzlib.ScreenGui = ScreenGui
 
@@ -624,7 +686,7 @@ function redzlib:SetTheme(NewTheme, saveTheme)
   if saveTheme == true then SaveJson("rael hub with redz library.json", redzlib.Save) end
   Theme = redzlib.Themes[NewTheme]
 
-  Connection:FireConnection("ThemeChanged", NewTheme)
+  Funcs:FireCustomConnection("ThemeChanged", NewTheme)
   table.foreach(redzlib.Instances, function(_,Val)
     if Val.Type == "Gradient" then
       Val.Instance.Color = Theme["Color Hub 1"]
@@ -2031,13 +2093,14 @@ function redzlib:MakeWindow(Configs)
     end
     
     function Tab:AddKeybind(Configs)
-      local TName = Configs[1] or Configs.Name or Configs.Title or "Text Box"
-      local TDesc = Configs[2] or Configs.Desc or Configs.Description or ""
-      local TValue = Configs[3] or Configs.Value or "..."
+      local KName = Configs[1] or Configs.Name or Configs.Title or "Text Box"
+      local KDesc = Configs[2] or Configs.Desc or Configs.Description or ""
+      local KValue = Configs[3] or Configs.Value or "..."
       local Callback = Configs[4] or Configs.Callback or function() end
       
-      local Button, LabelFunc = ButtonFrame(Container, TName, TDesc, UDim2.new(1, -38))
-      local ButtonTarget = "..."
+      local Button, LabelFunc = ButtonFrame(Container, TName, KDesc, UDim2.new(1, -38))
+
+      local ButtonTarget = KValue
       local NoCanActive = false
 
       local SelectedFrame = InsertTheme(Create("Frame", Button, {
@@ -2055,10 +2118,12 @@ function redzlib:MakeWindow(Configs)
         Font = Enum.Font.GothamBold,
         TextScaled = true,
         TextColor3 = Theme["Color Text"],
-        Text = TValue
+        Text = KValue
       }), "Text")
 
-      local KeybindInputBegan = UserInputService.InputBegan:Connect(function(input)
+
+      local ConnectionKeybind = Funcs:SetConnection({"InputBegan", UserInputService, true}):Connect(function(input)
+
         local success, result = pcall(function()
           return input.KeyCode == Enum.KeyCode[ButtonTarget]
         end)
@@ -2103,9 +2168,9 @@ function redzlib:MakeWindow(Configs)
       end
 
       function Keybind:Destroy()
-        if KeybindInputBegan then
-          KeybindInputBegan:Disconnect()
-          KeybindInputBegan = nil
+        if ConnectionKeybind then
+          ConnectionKeybind:Disconnect()
+          ConnectionKeybind = nil
         end
 
         Button:Destroy()
@@ -2209,6 +2274,71 @@ function redzlib:MakeWindow(Configs)
       function DiscordInvite:Visible(...) Funcs:ToggleVisible(InviteHolder, ...) end
       return DiscordInvite
     end
+
+    function Tab:AddUserRoblox(Configs)
+      local Name = Configs[1] or Configs.Name or "Roblox"
+      local Username = Configs[2] or Configs.Username or "Roblox"
+      local Desc = Configs[2] or Configs.Desc or Configs.Description or ""
+      
+      local UserId = Username and typeof(Username) == "string" and Players:GetUserIdFromNameAsync(Username)
+
+      local ImageId, bool = UserId and typeof(UserId) == "number" and Players:GetUserThumbnailAsync(
+        UserId, 
+        Enum.ThumbnailType.HeadShot,
+        Enum.ThumbnailSize.Size48x48
+      )
+
+      local InviteHolder = Create("Frame", Container, {
+        Name = "Option",
+        Size = UDim2.new(1, 0, 0, 45),
+        BackgroundTransparency = 1
+      })
+
+      local FrameHolder = InsertTheme(Create("Frame", InviteHolder, {
+        Size = UDim2.new(1, 0, 0, 45),
+        AnchorPoint = Vector2.new(0, 0),
+        Position = UDim2.new(0, 0, 0),
+        BackgroundColor3 = Theme["Color Hub 2"]
+      }), "Frame")Make("Corner", FrameHolder)
+      
+      if ImageId then
+        local ImageLabel = Create("ImageLabel", FrameHolder, {
+          Size = UDim2.new(0, 30, 0, 30),
+          Position = UDim2.new(0, 7, 0, 7),
+          Image = ImageId,
+          BackgroundTransparency = 1
+        }, {
+          Create("UICorner", {
+            CornerRadius = UDim.new(0, 4)
+          })
+        })
+      end
+      
+      local LTitle = InsertTheme(Create("TextLabel", FrameHolder, {
+        Size = UDim2.new(1, -52, 0, 15),
+        Position = ImageId and UDim2.new(0, 44, 0, 7) or UDim2.new(0, 7, 0, 7),
+        Font = Enum.Font.GothamBold,
+        TextColor3 = Theme["Color Text"],
+        TextXAlignment = "Left",
+        BackgroundTransparency = 1,
+        TextSize = 10,
+        Text = Name
+      }), "Text")
+      
+      local LDesc = InsertTheme(Create("TextLabel", FrameHolder, {
+        Size = UDim2.new(1, -52, 0, 0),
+        Position = UDim2.new(0, 44, 0, 22),
+        TextWrapped = "Y",
+        AutomaticSize = "Y",
+        Font = Enum.Font.Gotham,
+        TextColor3 = Theme["Color Dark Text"],
+        TextXAlignment = "Left",
+        BackgroundTransparency = 1,
+        TextSize = 8,
+        Text = Desc
+      }), "DarkText")
+    end
+
     return Tab
   end
   
