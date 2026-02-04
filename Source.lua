@@ -2093,12 +2093,12 @@ function redzlib:MakeWindow(Configs)
     end
     
     function Tab:AddKeybind(Configs)
-      local KName = Configs[1] or Configs.Name or Configs.Title or "Text Box"
+      local KName = Configs[1] or Configs.Name or Configs.Title or "Keybind"
       local KDesc = Configs[2] or Configs.Desc or Configs.Description or ""
       local KValue = Configs[3] or Configs.Value or "..."
       local Callback = Configs[4] or Configs.Callback or function() end
       
-      local Button, LabelFunc = ButtonFrame(Container, TName, KDesc, UDim2.new(1, -38))
+      local Button, LabelFunc = ButtonFrame(Container, KName, KDesc, UDim2.new(1, -38))
 
       local ButtonTarget = KValue
       local NoCanActive = false
