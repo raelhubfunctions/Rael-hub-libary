@@ -2347,4 +2347,6 @@ function redzlib:MakeWindow(Configs)
   return Window
 end
 
+shared.redzlib.lib = redzlib
+
 return redzlib
