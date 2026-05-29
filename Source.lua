@@ -865,17 +865,21 @@ function redzlib:MakeWindow(Configs)
 
   local function LoadFile()
     local File = Settings.ScriptFile
+
     if type(File) ~= "string" then return end
     if File == "" then return end
     if not readfile or not isfile then return end
-    local s, r = pcall(isfile, File)
     
-    if s and r then
-      local s, _Flags = pcall(readfile, File)
-      
-      if s and type(_Flags) == "string" then
-        local s,r = pcall(function() return HttpService:JSONDecode(_Flags) end)
-        Flags = s and r or {}
+    local SuccessFile, ResultFIle = pcall(isfile, File)
+    
+    if SuccessFile and ResultFIle then
+      local SuccessFlags, _Flags = pcall(readfile, File)
+
+      if SuccessFlags and type(_Flags) == "string" then
+        local SuccessDecode, ResultDecode = pcall(function() return HttpService:JSONDecode(_Flags) end)
+
+        Flags = SuccessDecode and ResultDecode or {}
+        redzlib.Flags = SuccessDecode and ResultDecode or {}
       end
     end
   end;LoadFile()
@@ -1694,7 +1698,7 @@ function redzlib:MakeWindow(Configs)
         end
         
         local function CallbackSelected()
-          SetFlag(Flag, MultiSelect and Selected or tostring(Selected))
+          SetFlag(Flag, MultiSelect and Selected or tostring(Selected or "..."))
           Funcs:FireCallback(Callback, Selected)
         end
         
@@ -2027,9 +2031,12 @@ function redzlib:MakeWindow(Configs)
       local TName = Configs[1] or Configs.Name or Configs.Title or "Text Box"
       local TDesc = Configs.Desc or Configs.Description or ""
       local TDefault = Configs[2] or Configs.Default or ""
-      local TPlaceholderText = Configs[5] or Configs.PlaceholderText or "Input"
       local TClearText = Configs[3] or Configs.ClearText or false
+      local Flag = Configs[4] or Configs.Flag or false
+      local TPlaceholderText = Configs[5] or Configs.PlaceholderText or "Input"
       local Callback = Funcs:GetCallback(Configs, 4)
+
+      if CheckFlag(Flag) then TDefault = GetFlag(Flag) end
       
       if type(TDefault) ~= "string" or TDefault:gsub(" ", ""):len() < 1 then
         TDefault = false
@@ -2054,7 +2061,7 @@ function redzlib:MakeWindow(Configs)
         TextColor3 = Theme["Color Text"],
         ClearTextOnFocus = TClearText,
         PlaceholderText = TPlaceholderText,
-        Text = ""
+        Text = TDefault or ""
       }), "Text")
       
       local Pencil = Create("ImageLabel", SelectedFrame, {
@@ -2074,6 +2081,7 @@ function redzlib:MakeWindow(Configs)
           end
           Funcs:FireCallback(Callback, Text)
           TextBoxInput.Text = Text
+          SetFlag(Flag, Text)
         end
       end
       
